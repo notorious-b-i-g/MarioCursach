@@ -1,5 +1,6 @@
 ﻿#nullable enable
 using System.ComponentModel;
+using System.Drawing;
 
 namespace MarioWinForms
 {
@@ -7,6 +8,7 @@ namespace MarioWinForms
     {
         private IContainer? components = null;
         private System.Windows.Forms.Timer gameTimer = null!;
+        private System.Windows.Forms.Label scoreLabel = null!;
 
         protected override void Dispose(bool disposing)
         {
@@ -22,6 +24,15 @@ namespace MarioWinForms
             {
                 Interval = 16          // ~60 FPS
             };
+            scoreLabel = new System.Windows.Forms.Label
+            {
+                AutoSize = true,
+                Location = new Point(5, 5),
+                ForeColor = Color.White,
+                BackColor = Color.Black,
+                Text = "Score: 0"
+            };
+            Controls.Add(scoreLabel);
 
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             ClientSize = new System.Drawing.Size(800, 480);

@@ -16,24 +16,28 @@ namespace MarioWinForms
         private const float MAX_FALL = 12f;
         private const float MOVE_SPEED = 3.0f;
         private const float JUMP_FORCE = 10.5f;
+        private const float ENEMY_SPEED = 1.5f;
 
         // --- кисти для отрисовки ---
         private static readonly Brush BlockBrush = Brushes.SaddleBrown;
         private static readonly Brush PlayerBrush = Brushes.Red;
+        private static readonly Brush EnemyBrush = Brushes.ForestGreen;
 
         // --- данные уровня ---
         private readonly string[] level =
         {
             "############################",
-            "#..........................#",
+            "#.................E.......E#",
             "#..........###.............#",
-            "#..................##......#",
+            "#............E....##.......#",
             "#..P.......................#",
             "############################"
         };
 
         private readonly List<Block> blocks = new();
+        private readonly List<Enemy> enemies = new();
         private Player? player;
+        private int score;
 
         // --- ввод ---
         private bool leftHeld, rightHeld, jumpHeld;
@@ -54,7 +58,10 @@ namespace MarioWinForms
         private void BuildLevel()
         {
             blocks.Clear();
+            enemies.Clear();
             player = null;
+            score = 0;
+            scoreLabel.Text = "Score: 0";
 
             for (int y = 0; y < level.Length; y++)
                 for (int x = 0; x < level[y].Length; x++)
@@ -66,6 +73,9 @@ namespace MarioWinForms
                             break;
                         case 'P':
                             player = new Player(x * TILE, y * TILE);
+                            break;
+                        case 'E':
+                            enemies.Add(new Enemy(x * TILE, y * TILE));
                             break;
                     }
                 }
@@ -81,6 +91,29 @@ namespace MarioWinForms
 
             HandleInput();
             player.Update(blocks);
+
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var en = enemies[i];
+                en.Update(blocks);
+
+                if (player.Rect.IntersectsWith(en.Rect))
+                {
+                    bool stomp = player.Vel.Y > 0 &&
+                                 player.Rect.Bottom <= en.Rect.Top + TILE / 2;
+                    if (stomp)
+                    {
+                        enemies.RemoveAt(i--);
+                        player.Vel = new Vector2(player.Vel.X, -JUMP_FORCE * 0.7f);
+                        score += 100;
+                        continue;
+                    }
+                    BuildLevel();
+                    return;
+                }
+            }
+
+            scoreLabel.Text = $"Score: {score}";
             Invalidate();                 // запрос перерисовки
         }
 
@@ -110,6 +143,9 @@ namespace MarioWinForms
 
             foreach (var b in blocks)
                 g.FillRectangle(BlockBrush, b.Rect.X - camX, b.Rect.Y, TILE, TILE);
+
+            foreach (var en in enemies)
+                g.FillRectangle(EnemyBrush, en.Rect.X - camX, en.Rect.Y, TILE, TILE);
 
             g.FillRectangle(PlayerBrush, player.Rect.X - camX, player.Rect.Y, TILE, TILE);
         }
@@ -175,6 +211,49 @@ namespace MarioWinForms
             internal RectangleF Rect;
             internal Block(float x, float y)
                 => Rect = new RectangleF(x, y, TILE, TILE);
+        }
+
+        private sealed class Enemy
+        {
+            internal RectangleF Rect;
+            internal Vector2 Vel;
+            internal bool Grounded;
+
+            internal Enemy(float x, float y)
+            {
+                Rect = new RectangleF(x, y, TILE, TILE);
+                Vel = new Vector2(-ENEMY_SPEED, 0);
+            }
+
+            internal void Update(IEnumerable<Block> world)
+            {
+                if (!Grounded)
+                    Vel = new Vector2(Vel.X, Math.Min(Vel.Y + GRAVITY, MAX_FALL));
+
+                Rect.X += Vel.X;
+                foreach (var b in world)
+                    if (Rect.IntersectsWith(b.Rect))
+                    {
+                        Rect.X = Vel.X > 0 ? b.Rect.Left - Rect.Width : b.Rect.Right;
+                        Vel = new Vector2(-Vel.X, Vel.Y);
+                    }
+
+                Grounded = false;
+                Rect.Y += Vel.Y;
+                foreach (var b in world)
+                    if (Rect.IntersectsWith(b.Rect))
+                    {
+                        if (Vel.Y > 0)
+                        {
+                            Rect.Y = b.Rect.Top - Rect.Height;
+                            Grounded = true;
+                        }
+                        else
+                            Rect.Y = b.Rect.Bottom;
+
+                        Vel = new Vector2(Vel.X, 0);
+                    }
+            }
         }
     }
 }
